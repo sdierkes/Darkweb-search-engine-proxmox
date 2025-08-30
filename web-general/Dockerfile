@@ -17,6 +17,7 @@ WORKDIR /opt/torscraper/web
 COPY requirements.txt /opt/torscraper/web/requirements.txt
 
 RUN python -m pip install --upgrade pip
+RUN pip install setuptools==68.2.2
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --upgrade requests
 
