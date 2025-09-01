@@ -1,4 +1,5 @@
 FROM mariadb:10.2
+FROM mariadb:10.11
 ENV MYSQL_USER=toruser
 ENV MYSQL_PASSWORD=tor-password
 ENV MYSQL_DATABASE=tor
