@@ -3,18 +3,18 @@ version: '3.2'
 
 services:
   
-  elasticsearch1:
+  elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
     environment:
-     - cluster.name=docker-cluster
-     - node.name=elasticsearch1
+    # - cluster.name=docker-cluster
+     - node.name=elasticsearch
      - "ES_JAVA_OPTS=-Xmx4g -Xms4g"
     #  - ELASTIC_PASSWORD=reZeP6crgHBGVsKeAFyWnduTzcwyB4qR
     #  - xpack.monitoring.collection.enabled=true
     #  - xpack.monitoring.exporters.remote.type=http
     #  - xpack.monitoring.exporters.remote.host=monitor
-     - discovery.seed_hosts=elasticsearch1,elasticsearch2
-     - cluster.initial_master_nodes=elasticsearch1,elasticsearch2
+    # - discovery.seed_hosts=elasticsearch1,elasticsearch2
+    # - cluster.initial_master_nodes=elasticsearch1,elasticsearch2
     #  - xpack.license.self_generated.type=basic
     #  - xpack.security.enabled=true
     #  - xpack.security.http.ssl.enabled=true
@@ -27,57 +27,26 @@ services:
     #  - xpack.security.transport.ssl.certificate=$ELK_CERTS_DIR/elasticsearch1/elasticsearch1.crt
     #  - xpack.security.transport.ssl.key=$ELK_CERTS_DIR/elasticsearch1/elasticsearch1.key
      - indices.query.bool.max_clause_count=10240
+     - discovery.type=single-node
+     - xpack.security.enabled=false
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - .data/elasticsearch1:/var/lib/elasticsearch/data
+      - .data/elasticsearch:/var/lib/elasticsearch/data
       - ./elk-certs:$ELK_CERTS_DIR
     ports:
       - "127.0.0.1:9200:9200"
-    container_name: "darkweb-search-engine-elasticsearch1"
-
-  elasticsearch2:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${ELK_VERSION}
-    environment:
-     - cluster.name=docker-cluster
-     - node.name=elasticsearch2
-     - "ES_JAVA_OPTS=-Xmx4g -Xms4g"
-    #  - ELASTIC_PASSWORD=reZeP6crgHBGVsKeAFyWnduTzcwyB4qR
-    #  - xpack.monitoring.collection.enabled=true
-    #  - xpack.monitoring.exporters.remote.type=http
-    #  - xpack.monitoring.exporters.remote.host=monitor
-     - discovery.seed_hosts=elasticsearch1,elasticsearch2
-     - cluster.initial_master_nodes=elasticsearch1,elasticsearch2
-    #  - xpack.license.self_generated.type=basic
-    #  - xpack.security.enabled=true
-    #  - xpack.security.http.ssl.enabled=true
-    #  - xpack.security.http.ssl.key=$ELK_CERTS_DIR/elasticsearch2/elasticsearch2.key
-    #  - xpack.security.http.ssl.certificate_authorities=$ELK_CERTS_DIR/ca/ca.crt
-    #  - xpack.security.http.ssl.certificate=$ELK_CERTS_DIR/elasticsearch2/elasticsearch2.crt
-    #  - xpack.security.transport.ssl.enabled=true 
-    #  - xpack.security.transport.ssl.verification_mode=certificate 
-    #  - xpack.security.transport.ssl.certificate_authorities=$ELK_CERTS_DIR/ca/ca.crt
-    #  - xpack.security.transport.ssl.certificate=$ELK_CERTS_DIR/elasticsearch2/elasticsearch2.crt
-    #  - xpack.security.transport.ssl.key=$ELK_CERTS_DIR/elasticsearch2/elasticsearch2.key
-     - indices.query.bool.max_clause_count=10240
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - .data/elasticsearch2:/usr/share/elasticsearch/data
-      - ./elk-certs:$ELK_CERTS_DIR
-    # ports:
-    #   - "127.0.0.1:9201:9200"
-    container_name: "darkweb-search-engine-elasticsearch2"
+    container_name: "dwse-elasticsearch"
+    networks:
+      - dwse
 
   kibana:
     image: docker.elastic.co/kibana/kibana:${ELK_VERSION}
     environment:
-     - ELASTICSEARCH_URL=http://elasticsearch1:9200
-     - ELASTICSEARCH_HOSTS=http://elasticsearch1:9200
+    # - ELASTICSEARCH_URL=http://elasticsearch:9200
+     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
      - NODE_OPTIONS="--max-old-space-size=8192"  
     #  - xpack.monitoring.ui.container.elasticsearch.enabled=true 
     #  - xpack.security.transport.ssl.verification_mode=certificate  
@@ -92,15 +61,19 @@ services:
     volumes:
       - ./elk-certs:$ELK_CERTS_DIR
     ports:
-      - "127.0.0.1:5601:5601"
+      - "5601:5601"
     restart: always
-    container_name: "darkweb-search-engine-kibana"
+    depends_on:
+      - elasticsearch
+    container_name: "dwse-kibana"
+    networks:
+      - dwse
 
   web-general:
     build: web-general
     restart: always
     ports:
-      - "127.0.0.1:7000:5000"
+      - "7000:5000"
     volumes:
       - ./etc:/opt/torscraper/etc:ro
       - ./scripts:/opt/torscraper/scripts:ro
@@ -108,17 +81,20 @@ services:
       - ./web-general:/opt/torscraper/web
     depends_on:
       - db
-      - elasticsearch1
-      - elasticsearch2
-    container_name: "darkweb-search-engine-web-general"
+      - elasticsearch
+    networks:
+      - dwse
+    container_name: "dwse-web-general"
 
   db:
     build: db
     ports:
       - "127.0.0.1:3307:3306"
     volumes:
-      - .data/mysqldb:/var/lib/mysql
-    container_name: "darkweb-search-engine-db"
+      - .data/mysqldb-10.11:/var/lib/mysql
+    container_name: "dwse-db"
+    networks:
+      - dwse
 
 #   crawler:
 #     build: .
@@ -141,43 +117,15 @@ services:
   tor-privoxy0:
     restart: always
     build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy0"
+    container_name: "dwse-tor-privoxy0"
+    networks:
+      - dwse
   tor-privoxy1:
     restart: always
     build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy1" 
-  tor-privoxy2:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy2"
-  tor-privoxy3:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy3"
-  tor-privoxy4:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy4"
-  tor-privoxy5:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy5"
-  tor-privoxy6:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy6"
-  tor-privoxy7:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy7"
-  tor-privoxy8:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy8"
-  tor-privoxy9:
-    restart: always
-    build: tor-privoxy-scraper
-    container_name: "darkweb-search-engine-tor-privoxy9"   
+    container_name: "dwse-tor-privoxy1" 
+    networks:
+      - dwse
     
   tor-privoxy-web:
     restart: always
@@ -185,10 +133,12 @@ services:
     ports:
       # - "9050:9050" # Tor proxy
       - "3100:8100" # Privoxy
-    container_name: "darkweb-search-engine-tor-privoxy-web"
+    container_name: "dwse-tor-privoxy-web"
+    networks:
+      - dwse
 
 networks:
-  default:
+  dwse:
     driver: bridge
     ipam:
       config:

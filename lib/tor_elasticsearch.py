@@ -431,6 +431,7 @@ if is_elasticsearch_enabled():
 def migrate():
     # hidden service
     hidden_services = Index('hiddenservices')
+    # print(hidden_services);
     hidden_services.delete(ignore=404)
     hidden_services = Index('hiddenservices')
     hidden_services.settings(
