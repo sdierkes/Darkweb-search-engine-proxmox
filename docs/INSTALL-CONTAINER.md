@@ -10,7 +10,7 @@ Therefore download an actual Alma LXC template within the Proxmox GUI
 ## Create a new Proxmox CT
 
 Create the container, for this installation use (for later reference, choices of course up to you):
-* Name: "dswe"
+* Name: "dwse"
 * ID: 555
 
 <p align="center">
