@@ -77,4 +77,8 @@ When creating the container, configure the following settings (examples are prov
 
 Before starting the container, you must **update the Proxmox host configuration** for this CT.  
 
+---
+
+## Next Step
+
 👉 Continue with the next step: [Adjust Memory Lock Settings](INSTALL-ADJUST-MEMLOCK.md)  

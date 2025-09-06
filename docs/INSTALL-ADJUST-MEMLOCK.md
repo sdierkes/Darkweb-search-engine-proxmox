@@ -11,4 +11,11 @@ Therefore open shell on the Hostsystem, i.e. the machine running Proxmox and app
 
 Change the file name "555.conf" if you don't use 555 as id for your container.
 Now configuration is done, and the container can be started.
-[prvious step](./INSTALL-CONTAINER.md)
+
+---
+
+## Next Step
+
+👉 Continue with the next step: [Install necessary software and docker in container](INSTALL-DOCKER.md)  
+
+[previous step](./INSTALL-CONTAINER.md)
