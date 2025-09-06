@@ -46,7 +46,8 @@ RUN pip install --upgrade requests
 # RUN python -m spacy download zh_core_web_md
 # RUN python -m spacy download da_core_news_md
 # RUN python -m spacy download nl_core_news_md
-RUN python -m spacy download en_core_web_lg
+RUN python -m spacy download en_core_news_lg
+# RUN python -m spacy download en_core_web_sm
 # RUN python -m spacy download fr_core_news_md
 # RUN python -m spacy download de_core_news_md
 # RUN python -m spacy download el_core_news_md
