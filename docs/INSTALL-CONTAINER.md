@@ -54,4 +54,6 @@ Summary:
 
 __IMPORTANT__ before starting the container there must be made some changes in the proxmox host configuration for this container.
 
+[netx step](INSTALL-ADJUST-MEMLOCK.md)
+
 
