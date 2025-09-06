@@ -1,59 +1,80 @@
-# Proxmox LXC installation
+# Proxmox LXC Installation Guide
 
-As base for the docker installation an Alma Linux LXC container will be used.
-Therefore download an actual Alma LXC template within the Proxmox GUI
+This guide explains how to create an **AlmaLinux LXC container** in Proxmox as the base for a Docker installation.  
+
+---
+
+## Step 1: Download the AlmaLinux Template
+
+Download the latest AlmaLinux LXC template via the **Proxmox GUI**.  
 
 <p align="center">
   <img width="800" alt="download alma template" src="https://i.imgur.com/2zTD3ZK.png" />
 </p>
 
-## Create a new Proxmox CT
+---
 
-Create the container, for this installation use (for later reference, choices of course up to you):
-* Name: "dwse"
-* ID: 555
+## Step 2: Create a New Proxmox Container (CT)
 
-<p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_general.png" />
-</p>
+When creating the container, configure the following settings (examples are provided; adjust as needed):  
 
-* Template: Alma 9 (s. above)
+- **Name:** `dwse`  
+- **ID:** `555`  
 
 <p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_template.png" />
+  <img width="600" alt="general settings" src="./images/ct_install_general.png" />
 </p>
 
-* Local Storage - up to you, if you untend to use it heavily with the ELK Stack and der scrappers this should't be too small, for the example: 24GB
+- **Template:** AlmaLinux 9  
 
 <p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_disk.png" />
+  <img width="600" alt="template selection" src="./images/ct_install_template.png" />
 </p>
 
-* CPU with the use of the scrappers this shouldn't be too small too, for example: 8
+- **Local Storage:** Choose based on expected workload.  
+  - For heavy use with **ELK Stack** and scrapers, allocate sufficient space.  
+  - Example: `24 GB`  
 
 <p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_cpu.png" />
+  <img width="600" alt="disk settings" src="./images/ct_install_disk.png" />
 </p>
 
-* Menory/swap - again with ELK this shouldn't be too small: 8 GB, better 16 GB
+- **CPU Cores:** Scrapers require processing power.  
+  - Example: `8` cores  
 
 <p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_memory.png" />
+  <img width="600" alt="CPU settings" src="./images/ct_install_cpu.png" />
 </p>
 
-* network - keep it simple here for example: DHCP, depends on your environment, **but** we need to know the NIC device name, assume **eth0** here (and static adress: 192.168.178.55)
+- **Memory / Swap:** ELK is memory intensive.  
+  - Minimum: `8 GB`  
+  - Recommended: `16 GB`  
 
 <p align="center">
-  <img width="600" alt="download alma template" src="./images/ct_install_network.png" />
+  <img width="600" alt="memory settings" src="./images/ct_install_memory.png" />
 </p>
 
-Summary: 
+- **Network:**  
+  - Example: **DHCP** (depending on your environment)  
+  - ⚠️ You must know the NIC device name (assume `eth0` in this example).  
+  - Optional static IP: `192.168.178.55`  
+
 <p align="center">
-  <img width="800" alt="create alma container" src="./images/ct_install_confirm.png" />
+  <img width="600" alt="network settings" src="./images/ct_install_network.png" />
 </p>
 
-__IMPORTANT__ before starting the container there must be made some changes in the proxmox host configuration for this container.
+---
 
-[netx step](INSTALL-ADJUST-MEMLOCK.md)
+## Step 3: Review the Summary
 
+<p align="center">
+  <img width="800" alt="container summary" src="./images/ct_install_confirm.png" />
+</p>
 
+---
+
+## ⚠️ Important Notice
+
+Before starting the container, you must **update the Proxmox host configuration** for this CT.  
+
+👉 Continue with the next step: [Adjust Memory Lock Settings](INSTALL-ADJUST-MEMLOCK.md)  
