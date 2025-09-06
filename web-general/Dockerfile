@@ -21,7 +21,7 @@ RUN pip install setuptools==68.2.2
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --upgrade requests
 
-RUN python -m spacy download en_core_web_lg
+RUN python -m spacy download en_core_web_sm
 
 COPY . /opt/torscraper/web/
 

@@ -15,6 +15,8 @@ RUN apt-get update && apt-get -y install \
   libxml2-dev \
   libxslt1-dev \
   haproxy \
+  net-tools \
+  nano \
   && rm -rf /var/lib/apt/lists/*
 
 COPY ./haproxy.cfg /etc/haproxy/haproxy.cfg
