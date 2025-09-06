@@ -98,8 +98,8 @@ Then start docker and enable docker on system start:
 
 Get docker-compose (you might want to change download to latest version of docker-compose) and make it executable
 
-    > sudo curl -L "https://github.com/docker/compose/releases/download/v2.39.2/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-    > sudo chmod +x /usr/local/bin/docker-compose
+    > sudo curl -L "https://github.com/docker/compose/releases/download/v2.39.2/docker-compose-linux-x86_64" -o /usr/bin/docker-compose
+    > sudo chmod +x /usr/bin/docker-compose
 
 ## Get the repo for the Darkweb-search-engine
 
