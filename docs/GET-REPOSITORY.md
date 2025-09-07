@@ -1,69 +1,134 @@
-# Installation of the project
+# Installation of the Project
 
-## Get the repo for the Darkweb-search-engine
+This guide explains how to clone the repository, build the project, and run the services inside your Proxmox LXC container.  
 
-Clone repository
+---
 
-    git clone https://github.com/sdierkes/Darkweb-search-engine-proxmox.git
+## Table of Contents
+1. [Clone the Repository](#step-1-clone-the-repository)  
+2. [Build the Base Infrastructure](#step-2-build-the-base-infrastructure)  
+3. [Access the Web Interfaces](#step-3-access-the-web-interfaces)  
+4. [Build and Run the Scraper](#step-4-build-and-run-the-scraper)  
+5. [Start Scraping URLs](#step-5-start-scraping-urls)  
+6. [View Results](#step-6-view-results)  
 
-and change directory
+---
 
-    cd Darkweb-search-engine-proxmox/
+## Step 1: Clone the Repository
 
-<p align="center">
-  <img width="800" alt="create alma container" src="./images/clone-repo.png" />
-</p>
+Clone the project repository:  
 
-    sudo docker-compose build
+```bash
+git clone https://github.com/sdierkes/Darkweb-search-engine-proxmox.git
+cd Darkweb-search-engine-proxmox/
+```
 
-<p align="center">
-  <img width="800" alt="create alma container" src="./images/build_1.png" />
-</p>
+![Clone repo](./images/clone-repo.png)
 
-There shouldn't be any errors, now we can start the base infrastructure of the project without the scraper.
+---
 
-    sudo docker-compose up -d
+## Step 2: Build the Base Infrastructure
 
-<p align="center">
-  <img width="800" alt="create alma container" src="./images/run-1.png" />
-</p>
+Build the Docker containers:  
 
-Now you should be able to connect to search engine Web-GUI and kibana within your local network. 
-To get the ip address of your server/container you might use (assuming during container installation you choose eth0 as nic)
+```bash
+sudo docker-compose build
+```
 
-    ifconfig -a eth0
+![Build containers](./images/build_1.png)
 
-In the output you should see the ip adress of your server and you might now point your browser to
+Start the base infrastructure (without the scraper):  
 
-* for Web-Gui: http://IP-Adress:7000/
-* for Kibane: http://IP-Adress:5601/
+```bash
+sudo docker-compose up -d
+```
 
-if you have a working DNS you might also be able to use the hostname "dwse" with your local domain.
-The Web-GUI shoild look like
+![Run containers](./images/run-1.png)
 
-<p align="center">
-  <img width="800" alt="create alma container" src="./images/search-ui.png" />
-</p>
+---
 
-## Build the Scrapper and start it
+## Step 3: Access the Web Interfaces
 
-Make sure you are in the base directory of the project and run
+Find the container’s IP address (assuming `eth0` was chosen as NIC):  
 
-    sudo docker build --tag scraper_crawler ./
+```bash
+ifconfig -a eth0
+```
 
-and start it 
+In your browser, access:  
+- Web-GUI: `http://<IP-Address>:7000/`  
+- Kibana: `http://<IP-Address>:5601/`  
 
-    sudo docker run -d --name darkweb-search-engine-onion-crawler --network=dwse-net scraper_crawler /opt/torscraper/scripts/start_onion_scrapy.sh
+> 💡 If you have a working DNS, you may also use the hostname `dwse` with your local domain.  
 
-afterwards we need to set up the right indexes in elasticsearch (might take some time), you could check the index with the kibana container
+Example Web-GUI:  
 
-<p align="center">
-  <img width="800" alt="create alma container" src="./images/kibana-index-view.png" />
-</p>
+![Search UI](./images/search-ui.png)
 
-and finally we start the scraping a list of urls. The list within this project only holds one URL, i.e. the onion adress of probulica.
+---
 
+## Step 4: Build and Run the Scraper
 
+Ensure you are in the base project directory and run:  
 
+```bash
+sudo docker build --tag scraper_crawler ./
+```
 
+Start the scraper:  
 
+```bash
+sudo docker run -d --name darkweb-search-engine-onion-crawler --network=dwse-net scraper_crawler /opt/torscraper/scripts/start_onion_scrapy.sh
+```
+
+Set up the Elasticsearch indexes (this may take some time):  
+
+```bash
+sudo docker exec darkweb-search-engine-onion-crawler /opt/torscraper/scripts/elasticsearch_migrate.sh
+```
+
+You can check the indices in Kibana:  
+
+![Kibana indices](./images/kibana-index-view.png)
+
+---
+
+## Step 5: Start Scraping URLs
+
+Start scraping a list of URLs (the included list contains only one entry: the ProPublica onion address):  
+
+```bash
+sudo docker exec darkweb-search-engine-onion-crawler /opt/torscraper/scripts/push_list.sh /opt/torscraper/onions_list/onions.txt
+```
+
+> ⚠️ On the first call you might see errors when attempting to fetch TLD information from the internet. Since this project focuses on **.onion sites**, these errors can be safely ignored.  
+
+---
+
+## Step 6: View Results
+
+Direct your browser to search for “propublica”:  
+
+```
+http://<IP-Address>:7000/?search=propublica
+```
+
+Example results:  
+
+![Search results](./images/search-results.png)
+
+---
+
+## Done!
+
+Your setup is complete. 🎉  
+
+Now it’s up to you to extend the list of onion entry points you are interested in.  
+Additional hints and guidance for working with this installation may be provided in future updates.  
+
+---
+
+## Navigation
+
+- ⬅️ [Previous: Install and Configure Docker](./INSTALL-DOCKER.md)  
+- ➡️ Next: *(to be added in upcoming documentation)*  
