@@ -7,7 +7,6 @@
 
 from scrapy import signals
 import logging
-import sys
 import urllib.parse
 import datetime
 from tor_db import *
@@ -189,30 +188,28 @@ class InjectRangeHeaderMiddleware(object):
     def __init__(self, download_maxsize, allow_list=None, big_download_maxsize=0):
         if allow_list is None:
             allow_list = []
-        # Ensure "big" is at least the default download_maxsize
         self.big_download_maxsize = download_maxsize if big_download_maxsize < download_maxsize else big_download_maxsize
         self.download_maxsize = download_maxsize
         self.allow_list = set(allow_list)
 
     def process_spider_output(self, response, result, spider):
-        """Always return an iterable; guard against None and drop malformed Requests."""
+        out = []
         for r in (result or ()):
             if r is None:
                 continue
             if isinstance(r, Request):
                 parsed_url = urlparse(r.url)
-                if not parsed_url.scheme or not parsed_url.hostname:
+                host = parsed_url.hostname
+                if not parsed_url.scheme or not host:
                     spider.logger.error(f"Dropping malformed URL from spider output: {r.url!r}")
                     continue
-                max_size = self.big_download_maxsize if parsed_url.hostname in self.allow_list else self.download_maxsize
-                # Use bytes for header key/value (Scrapy-friendly)
-                try:
-                    r.headers.setdefault(b"Range", f"bytes=0-{max_size-1}".encode())
-                except Exception as e:
-                    spider.logger.warning(f"Failed setting Range header for {r.url}: {e}")
-            yield r
+                max_size = self.big_download_maxsize if host in self.allow_list else self.download_maxsize
+                r.headers.setdefault(b'Range', f"bytes=0-{max_size-1}".encode())
+            out.append(r)
+        return out
 
     def process_start_requests(self, start_requests, spider):
+        out = []
         for r in (start_requests or ()):
             if r is None:
                 continue
@@ -221,7 +218,12 @@ class InjectRangeHeaderMiddleware(object):
                 if not parsed.scheme or not parsed.hostname:
                     spider.logger.error(f"Dropping malformed start URL: {r.url!r}")
                     continue
-            yield r
+            out.append(r)
+        return out
+
+    def process_spider_exception(self, response, exception, spider):
+        # Swallow by returning an empty iterable rather than None
+        return []
 
 class TorscraperSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -243,11 +245,12 @@ class TorscraperSpiderMiddleware(object):
         return None
 
     def process_spider_output(self, response, result, spider):
-        # Must return an iterable
+        out = []
         for i in (result or ()): 
             if i is None:
                 continue
-            yield i
+            out.append(i)
+        return out
 
     def process_spider_exception(self, response, exception, spider):
         # Called when a spider or process_spider_input() method
@@ -258,9 +261,12 @@ class TorscraperSpiderMiddleware(object):
         pass
 
     def process_start_requests(self, start_requests, spider):
-        for r in (start_requests or ()): 
-            if r is None:
-                continue
+        # Called with the start requests of the spider, and works
+        # similarly to the process_spider_output() method, except
+        # that it doesn’t have a response associated.
+
+        # Must return only requests (not items).
+        for r in start_requests:
             yield r
 
     def spider_opened(self, spider):
@@ -268,14 +274,22 @@ class TorscraperSpiderMiddleware(object):
 
 
 class FinalIterableGuardMiddleware(object):
-    """Last guard to ensure spider output is always iterable and free of None."""
+    """Run last: coerce None to iterable and drop None elements; swallow exceptions."""
     def process_spider_output(self, response, result, spider):
+        out = []
         for r in (result or ()):
             if r is None:
                 continue
-            yield r
+            out.append(r)
+        return out
+
+    def process_spider_exception(self, response, exception, spider):
+        return []
+
     def process_start_requests(self, start_requests, spider):
+        out = []
         for r in (start_requests or ()):
             if r is None:
                 continue
-            yield r
+            out.append(r)
+        return out
