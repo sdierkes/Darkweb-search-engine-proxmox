@@ -194,7 +194,7 @@ class TorSpider(scrapy.Spider):
         ],
         'INJECT_RANGE_HEADER': True,
         'ROBOTSTXT_OBEY': False,
-	    'CONCURRENT_REQUESTS' : 1024,
+        'CONCURRENT_REQUESTS' : 1024,
         'MEMUSAGE_LIMIT_MB' : 4096,
         'REACTOR_THREADPOOL_MAXSIZE' : 32,
         'CONCURRENT_REQUESTS_PER_DOMAIN' : 8,
@@ -214,6 +214,7 @@ class TorSpider(scrapy.Spider):
         },
         'SPIDER_MIDDLEWARES': {
             'torscraper.middlewares.InjectRangeHeaderMiddleware': 543,
+           'torscraper.middlewares.FinalIterableGuardMiddleware': 1000,
         },
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36',
     }
@@ -223,11 +224,11 @@ class TorSpider(scrapy.Spider):
         'jld3zkuo4b5mbios.onion',
     ]
 
-    
+
 
     def __init__(self, *args, **kwargs):
         super(TorSpider, self).__init__(*args, **kwargs)
-        # set download_delay        
+        # set download_delay
         if hasattr(self, "request_delay"):
             self.download_delay = float(int(self.request_delay))
         #
@@ -297,7 +298,7 @@ class TorSpider(scrapy.Spider):
 
     @db_session
     def update_page_info(self, url, title, code, is_frontpage=False, size=0):
-        
+
         print("update_page_info....", url)
         sys.stdout.flush()
 
@@ -334,7 +335,7 @@ class TorSpider(scrapy.Spider):
         ###################
 
         port = parsed_url.port
-        ssl = parsed_url.scheme == "https://"
+        ssl = (parsed_url.scheme == "https")
         path = '/' if parsed_url.path == '' else parsed_url.path
         # is_up = not code in failed_codes
         is_up = (code >= 200 and code < 300)
@@ -397,7 +398,7 @@ class TorSpider(scrapy.Spider):
         commit()
         return page
 
-    
+
     @timeout_decorator.timeout(5)
     @db_session
     def extract_other(self, page, body):
@@ -471,7 +472,7 @@ class TorSpider(scrapy.Spider):
                 domain.useful_404_dir = False
             else:
                 domain.useful_404     = False
-    
+
         domain.useful_404_scanned_at = datetime.now()
         return None
 
@@ -483,7 +484,7 @@ class TorSpider(scrapy.Spider):
         global script_cnt
         print("parsing...", script_cnt, response.url)
         sys.stdout.flush()
-        
+
         #### for marketplaces ####
         if hasattr(self, "is_proxy") and self.is_proxy == "yes" and self.site_info['proxy_endpoint'] in response.url:
             # check if login page
@@ -512,7 +513,7 @@ class TorSpider(scrapy.Spider):
         #####
 
         parsed_url = urlparse(response.url)
-        host = parsed_url.hostname    
+        host = parsed_url.hostname
 
         if hasattr(self, "is_grab") and self.is_grab == "yes" and host in self.start_domains:  # for search engine scraping call specific parsing function for start domains
             # priority = 0
@@ -524,10 +525,17 @@ class TorSpider(scrapy.Spider):
                 self.found_onions.append(new_onion)
                 print("onion found...", new_onion, len(self.found_onions))
                 sys.stdout.flush()
-                request_url = "http://{}".format(new_onion)
+                request_url = f"http://{new_onion.strip('.')}/"
                 yield scrapy.Request(request_url, callback=self.parse, priority=500, meta={'priority': 500})
             for url in response.xpath('//a/@href').extract():
-                request_url = response.urljoin(url)
+                href = (url or '').strip()
+                if not href or href.startswith('#') or href.lower().startswith('javascript:'):
+                    continue
+                request_url = response.urljoin(href)
+                parsed = urlparse(request_url)
+                if not parsed.scheme or not parsed.hostname:
+                    self.logger.error(f"Skipping malformed search URL from href: {href!r} -> {request_url!r}")
+                    continue
                 yield scrapy.Request(request_url, callback=self.parse, priority=300, meta={'priority': 300})
             if 'SEARCHWORD' in self.start_urls[0]:
                 searchword = self.search_words.pop(0)
@@ -543,7 +551,7 @@ class TorSpider(scrapy.Spider):
             print("Error page detected " + str(response.status) + " " + str(response.url))
             sys.stdout.flush()
             return
-        
+
         script_cnt += 1
 
         # for marketplace
@@ -556,7 +564,7 @@ class TorSpider(scrapy.Spider):
             title = response.css('title::text').extract_first()
         except AttributeError:
             pass
-        
+
         if host != "zlal32teyptf4tvi.onion" and host not in self.spider_exclude:
             self.log('Got %s (%s)' % (response.url, title))
             is_frontpage = Page.is_frontpage_request(response.request)
@@ -597,7 +605,7 @@ class TorSpider(scrapy.Spider):
                     self.log('checking the freshly dead (%s) for movement' % domain.host)
                     r = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(7, 12)))
                     test_url = domain.index_url() + r
-                    
+
                     if hasattr(self, "is_proxy") and self.is_proxy == "yes":
                         yield_later = scrapy.Request(test_url.replace(self.site_info['target_endpoint'], self.site_info['proxy_endpoint']), callback=lambda r: self.parse(r, recent_alive_check=True))
                     else:
@@ -606,7 +614,7 @@ class TorSpider(scrapy.Spider):
                     domain.dead_in_a_row += 1
                     if domain.dead_in_a_row > MAX_DEAD_IN_A_ROW:
                         domain.dead_in_a_row = MAX_DEAD_IN_A_ROW
-                    domain.next_scheduled_check = (datetime.now() + 
+                    domain.next_scheduled_check = (datetime.now() +
                         timedelta(minutes = penalty + random.randint(60, 60 + rng) * (PENALTY_BASE ** domain.dead_in_a_row)))
 
                 commit()
@@ -614,7 +622,8 @@ class TorSpider(scrapy.Spider):
                     yield yield_later
 
             is_text = False
-            content_type = response.headers.get("Content-Type").decode('utf-8')
+            ct = response.headers.get("Content-Type")
+            content_type = ct.decode('utf-8') if ct else ''
             if got_server_response and content_type and re.match('^text/', content_type.strip()):
                 is_text = True
 
@@ -661,7 +670,7 @@ class TorSpider(scrapy.Spider):
             # 404 detections
 
             if domain.is_up and is_frontpage and domain.useful_404_scanned_at < (datetime.now() - timedelta(weeks=2)):
-                
+
                 # standard
 
                 r = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(7, 12)))
@@ -689,7 +698,7 @@ class TorSpider(scrapy.Spider):
                 else:
                     yield scrapy.Request(url, callback=self.useful_404_detection)
 
-            link_to_list = []            
+            link_to_list = []
             self.log("Finding links...")
 
             if (not hasattr(self, "test") or self.test != "yes") and not host in self.spider_exclude and host in self.start_domains:
@@ -727,10 +736,10 @@ class TorSpider(scrapy.Spider):
                             link_to_list.append(fullurl)
 
                 self.log("link_to_list %s" % link_to_list)
-                
+
                 # rider added 2020-11-7 try to find additional domains
                 for new_onion in re.findall('[\w\-\.]+\.onion', response.body.decode('utf-8')):
-                    request_url = "http://{}".format(new_onion)
+                    request_url = "http://{}/".format(new_onion.strip('.'))
                     yield scrapy.Request(request_url, callback=self.parse)
                 ###
 
@@ -767,6 +776,3 @@ class TorSpider(scrapy.Spider):
             if page_url.startswith(blocked_url):
                 return True
         return False
-
-
-

@@ -7,6 +7,7 @@
 
 from scrapy import signals
 import logging
+import sys
 import urllib.parse
 import datetime
 from tor_db import *
@@ -181,24 +182,46 @@ class InjectRangeHeaderMiddleware(object):
             raise NotConfigured
         settings = crawler.settings
         big_download_maxsize = settings.get('BIG_DOWNLOAD_MAXSIZE', 0)
-        allow_list = settings.get('ALLOW_BIG_DOWNLOAD', [])
+        allow_list = settings.get('ALLOW_BIG_DOWNLOAD', []) or []
         download_maxsize = settings.get('DOWNLOAD_MAXSIZE')
         return cls(download_maxsize, allow_list, big_download_maxsize)
 
-    def __init__(self, download_maxsize, allow_list=[], big_download_maxsize=0):
+    def __init__(self, download_maxsize, allow_list=None, big_download_maxsize=0):
+        if allow_list is None:
+            allow_list = []
+        # Ensure "big" is at least the default download_maxsize
         self.big_download_maxsize = download_maxsize if big_download_maxsize < download_maxsize else big_download_maxsize
         self.download_maxsize = download_maxsize
-        self.allow_list = allow_list
+        self.allow_list = set(allow_list)
 
     def process_spider_output(self, response, result, spider):
-        def _set_range(r):
+        """Always return an iterable; guard against None and drop malformed Requests."""
+        for r in (result or ()):
+            if r is None:
+                continue
             if isinstance(r, Request):
                 parsed_url = urlparse(r.url)
-                host = parsed_url.hostname
-                max_size = self.big_download_maxsize if host in self.allow_list else self.download_maxsize
-                r.headers.setdefault('Range', "bytes=0-%d" % (max_size-1))
-            return r
-        return (_set_range(r) for r in result or ())
+                if not parsed_url.scheme or not parsed_url.hostname:
+                    spider.logger.error(f"Dropping malformed URL from spider output: {r.url!r}")
+                    continue
+                max_size = self.big_download_maxsize if parsed_url.hostname in self.allow_list else self.download_maxsize
+                # Use bytes for header key/value (Scrapy-friendly)
+                try:
+                    r.headers.setdefault(b"Range", f"bytes=0-{max_size-1}".encode())
+                except Exception as e:
+                    spider.logger.warning(f"Failed setting Range header for {r.url}: {e}")
+            yield r
+
+    def process_start_requests(self, start_requests, spider):
+        for r in (start_requests or ()):
+            if r is None:
+                continue
+            if isinstance(r, Request):
+                parsed = urlparse(r.url)
+                if not parsed.scheme or not parsed.hostname:
+                    spider.logger.error(f"Dropping malformed start URL: {r.url!r}")
+                    continue
+            yield r
 
 class TorscraperSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -212,22 +235,21 @@ class TorscraperSpiderMiddleware(object):
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
         return s
 
-    def process_spider_input(response, spider):
+    def process_spider_input(self, response, spider):
         # Called for each response that goes through the spider
         # middleware and into the spider.
 
         # Should return None or raise an exception.
         return None
 
-    def process_spider_output(response, result, spider):
-        # Called with the results returned from the Spider, after
-        # it has processed the response.
-
-        # Must return an iterable of Request, dict or Item objects.
-        for i in result:
+    def process_spider_output(self, response, result, spider):
+        # Must return an iterable
+        for i in (result or ()): 
+            if i is None:
+                continue
             yield i
 
-    def process_spider_exception(response, exception, spider):
+    def process_spider_exception(self, response, exception, spider):
         # Called when a spider or process_spider_input() method
         # (from other spider middleware) raises an exception.
 
@@ -235,14 +257,25 @@ class TorscraperSpiderMiddleware(object):
         # or Item objects.
         pass
 
-    def process_start_requests(start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
-        for r in start_requests:
+    def process_start_requests(self, start_requests, spider):
+        for r in (start_requests or ()): 
+            if r is None:
+                continue
             yield r
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
+
+
+class FinalIterableGuardMiddleware(object):
+    """Last guard to ensure spider output is always iterable and free of None."""
+    def process_spider_output(self, response, result, spider):
+        for r in (result or ()):
+            if r is None:
+                continue
+            yield r
+    def process_start_requests(self, start_requests, spider):
+        for r in (start_requests or ()):
+            if r is None:
+                continue
+            yield r
