@@ -194,7 +194,7 @@ class TorSpider(scrapy.Spider):
         ],
         'INJECT_RANGE_HEADER': True,
         'ROBOTSTXT_OBEY': False,
-	    'CONCURRENT_REQUESTS' : 1024,
+        'CONCURRENT_REQUESTS' : 1024,
         'MEMUSAGE_LIMIT_MB' : 4096,
         'REACTOR_THREADPOOL_MAXSIZE' : 32,
         'CONCURRENT_REQUESTS_PER_DOMAIN' : 8,
@@ -214,6 +214,7 @@ class TorSpider(scrapy.Spider):
         },
         'SPIDER_MIDDLEWARES': {
             'torscraper.middlewares.InjectRangeHeaderMiddleware': 543,
+            'torscraper.middlewares.FinalIterableGuardMiddleware': 100000,
         },
         'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36',
     }
@@ -334,7 +335,7 @@ class TorSpider(scrapy.Spider):
         ###################
 
         port = parsed_url.port
-        ssl = parsed_url.scheme == "https://"
+        ssl = parsed_url.scheme == "https"
         path = '/' if parsed_url.path == '' else parsed_url.path
         # is_up = not code in failed_codes
         is_up = (code >= 200 and code < 300)
@@ -524,10 +525,17 @@ class TorSpider(scrapy.Spider):
                 self.found_onions.append(new_onion)
                 print("onion found...", new_onion, len(self.found_onions))
                 sys.stdout.flush()
-                request_url = "http://{}".format(new_onion)
+                request_url = "http://{}/".format(new_onion.strip("."))
                 yield scrapy.Request(request_url, callback=self.parse, priority=500, meta={'priority': 500})
             for url in response.xpath('//a/@href').extract():
-                request_url = response.urljoin(url)
+                href = (url or '').strip()
+                if not href or href.startswith('#') or href.lower().startswith('javascript:'):
+                    continue
+                request_url = response.urljoin(href)
+                parsed = urlparse(request_url)
+                if not parsed.scheme or not parsed.hostname:
+                    self.logger.error(f"Skipping malformed search URL from href: {href!r} -> {request_url!r}")
+                    continue
                 yield scrapy.Request(request_url, callback=self.parse, priority=300, meta={'priority': 300})
             if 'SEARCHWORD' in self.start_urls[0]:
                 searchword = self.search_words.pop(0)
@@ -730,7 +738,7 @@ class TorSpider(scrapy.Spider):
                 
                 # rider added 2020-11-7 try to find additional domains
                 for new_onion in re.findall('[\w\-\.]+\.onion', response.body.decode('utf-8')):
-                    request_url = "http://{}".format(new_onion)
+                    request_url = "http://{}/".format(new_onion.strip("."))
                     yield scrapy.Request(request_url, callback=self.parse)
                 ###
 

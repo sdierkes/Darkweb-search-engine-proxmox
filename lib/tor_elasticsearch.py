@@ -9,6 +9,7 @@ from elasticsearch import serializer, compat, exceptions
 from elasticsearch_dsl import Search
 from elasticsearch_dsl import Q
 from elasticsearch_dsl import Index
+from elasticsearch_dsl.connections import connections
 import re
 import sys
 import hashlib
@@ -29,7 +30,7 @@ try:
         # 'nl': spacy.load('nl_core_news_md'),
         'en': spacy.load('en_core_web_lg'),
         # 'fr': spacy.load('fr_core_news_md'),
-        'de': spacy.load('de_core_news_md'),
+        #'de': spacy.load('de_core_news_md'),
         # 'el': spacy.load('el_core_news_md'),
         # 'it': spacy.load('it_core_news_md'),
         # 'ja': spacy.load('ja_core_news_md'),
@@ -39,7 +40,7 @@ try:
         # 'pl': spacy.load('pl_core_news_md'),
         # 'pt': spacy.load('pt_core_news_md'),
         # 'ro': spacy.load('ro_core_news_md'),
-        'ru': spacy.load('ru_core_news_md'),
+        #'ru': spacy.load('ru_core_news_md'),
         # 'es': spacy.load('es_core_news_md'),
     }
 except Exception as ex: 
@@ -87,6 +88,14 @@ class JSONSerializerPython2(serializer.JSONSerializer):
         except (ValueError, TypeError) as e:
             raise exceptions.SerializationError(data, e)
 
+def ensure_connection():
+    if not connections.get_connection():
+        connections.create_connection(
+            hosts=[os.environ['ELASTICSEARCH_HOST']],
+            serializer=JSONSerializerPython2(),
+            http_auth=(os.environ['ELASTICSEARCH_USERNAME'], os.environ['ELASTICSEARCH_PASSWORD']),
+            timeout=int(os.environ['ELASTICSEARCH_TIMEOUT'])
+        )
 
 def elasticsearch_retrieve_page_by_id(page_id):
     query = Search().filter(Q("term", nid=int(page_id)))[:1]
@@ -430,6 +439,9 @@ if is_elasticsearch_enabled():
 
 def migrate():
     # hidden service
+    if not is_elasticsearch_enabled():
+        raise RuntimeError("Elasticsearch is not enabled/configured (ELASTICSEARCH_ENABLED!=true).")
+    ensure_connection()
     hidden_services = Index('hiddenservices')
     hidden_services.delete(ignore=404)
     hidden_services = Index('hiddenservices')

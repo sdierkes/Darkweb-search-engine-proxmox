@@ -59,7 +59,7 @@
         });
 
         var client = elasticsearch.Client({
-            host: 'darknyx.com:443'
+            host: window.location.hostname+':9200'
         });
         var query = {
             "bool": {
@@ -84,27 +84,95 @@
                 ]
             }
         };
-        var table = $('#searchlist').dataTable({
-            'columns': [
-                {'sTitle': 'Domain', 'sName': 'domain'},
-                {'sTitle': 'Title', 'sName': 'title'},
-                {'sTitle': 'Updated', 'sName': 'visited_at'},
-            ],
-            "pageLength": 25,
-            "ordering": false,
-            'bProcessing': true,
-            'bFilter': false,
-            'bServerSide': true,
-            'bAutoWidth': true,
-            'fnServerData': $.fn.dataTable.elastic_datatables({
-                index: 'hiddenservices',
-                client: client,
-                body: {
-                    "query": query,
-                    "_source": ["domain", "title", "visited_at"],
-                }
-            })
-        });
+
+	// Make sure you initialize with .DataTable (1.10 API), not .dataTable (1.9)
+	var table = $('#searchlist').DataTable({
+	  serverSide: true,
+	  processing: true,
+	  searching: false,
+	  ordering: false,
+	  pageLength: 25,
+	  deferRender: true,
+
+	  // Talk to Elasticsearch directly and return the 1.10 "data" shape
+	  ajax: function (data, callback, settings) {
+	    var from = data.start || 0;
+	    var size = data.length || 25;
+
+	    client.search({
+	      index: 'hiddenservices',
+	      body: {
+	        from: from,
+	        size: size,
+	        query: query,
+	        _source: ['domain', 'title', 'visited_at'],
+	        sort: [{ 'visited_at': { order: 'desc' } }]
+	      }
+	    }).then(function (resp) {
+	      var hits = (resp.hits && resp.hits.hits) || [];
+
+	      // Flatten each hit to a simple object that matches your columns
+	      var rows = hits.map(function (h) {
+	        var s = h._source || {};
+	        return {
+	          domain: s.domain || '',
+	          title: s.title || '',
+	          visited_at: s.visited_at || ''
+	        };
+	      });
+
+	      // ES 6/7+: total is an object { value, relation }; ES 5: number
+	      var total = 0;
+	      if (resp.hits && resp.hits.total != null) {
+	        total = typeof resp.hits.total === 'object' ? resp.hits.total.value : resp.hits.total;
+	      }
+
+	      callback({
+	        draw: data.draw,
+	        recordsTotal: total,
+	        recordsFiltered: total,
+	        data: rows
+	      });
+	    }).catch(function (err) {
+	      console.error('ES search failed:', err);
+	      callback({ draw: data.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+	    });
+	  },
+
+	  columns: [
+	    {
+	      title: 'Domain',
+	      data: 'domain',
+	      defaultContent: '',
+	      render: function (data, type) {
+	        if (type !== 'display' || !data) return data;
+	        var url = /^https?:\/\//i.test(data) ? data : ('http://' + data);
+	        var text = String(data)
+	          .replace(/&/g, '&amp;')
+	          .replace(/</g, '&lt;')
+	          .replace(/>/g, '&gt;');
+	        return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + text + '</a>';
+	      }
+	    },
+	    { title: 'Title', data: 'title', defaultContent: '' },
+	    {
+	      title: 'Updated',
+	      data: 'visited_at',
+	      defaultContent: '',
+	      render: function (data, type) {
+	        if (!data || type !== 'display') return data;
+	        try { return new Date(data).toLocaleString(); } catch { return data; }
+	      }
+	    }
+	  ]
+	});
+
+	// Optional: surface any DataTables errors to the console
+	$('#searchlist').on('error.dt', function (e, settings, techNote, message) {
+	  console.warn('DataTables error:', message);
+	});
+
+
     });
 </script>
 </body>

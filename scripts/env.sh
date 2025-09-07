@@ -136,15 +136,15 @@ export HIDDEN_SERVICE_PROXY_PORT59
 
 
 . $ETCDIR/database
-export DB_HOST
-export DB_USER
-export DB_PASS
-export DB_BASE
+export DB_HOST=dwse-db
+export DB_USER=toruser
+export DB_PASS=tor-password
+export DB_BASE=tor
 
 . $ETCDIR/elasticsearch
-export ELASTICSEARCH_ENABLED
-export ELASTICSEARCH_HOST
-export ELASTICSEARCH_PORT
+export ELASTICSEARCH_ENABLED=true
+export ELASTICSEARCH_HOST=http://dwse-elasticsearch
+export ELASTICSEARCH_PORT=9200
 export ELASTICSEARCH_TIMEOUT
 export ELASTICSEARCH_USERNAME
 export ELASTICSEARCH_PASSWORD
