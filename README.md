@@ -1,142 +1,64 @@
-# Nexvision search engine for Proxmox
+# Project Motivation and Goals
 
-This fork solves some compatibility issues of the original repo during installation 
-and descibes the installation within an existing [Proxmox](https://www.proxmox.com/en/) server within a LXC container.
+## Motivation
 
-The installation instructions are intended for a basic installation and not for a complex production environment.
+The original project has become outdated due to aging dependencies and compatibility issues.  
+This new effort aims to **modernize and simplify** the setup, ensuring it works reliably with current versions of Proxmox, Docker, and other essential components.  
 
-For more information see the [original repository from Nexvision](https://github.com/NexvisionLab/Darkweb-search-engine)
+In addition to updating the code, this project provides:  
+- A detailed installation guide tailored for **Proxmox** environments.  
+- A more profound explanation of the setup process, making it easier for advanced users to understand and adapt.  
 
-## Prerequisites
+---
 
-* good base knowledge of Linux, not every step will be explained in deep
-* a running Prosmox server to install Docker and the search engine.
+## Goals
 
-# Proxmox LXC installation
+1. **Update Dependencies**  
+   - Bring the original Git project up to date with newer versions of the used libraries and frameworks.  
+   - Eliminate issues caused by outdated or unsupported components.  
 
-As base for the docker installation an Alma Linux LXC container will be used.
-Therefore download an actual Alma LXC template within the Proxmox GUI
+2. **Simplify the Architecture**  
+   - Use fewer Docker containers (e.g., a single Elasticsearch instance instead of two, fewer privacy proxy instances).  
+   - Provide a lightweight, maintainable setup suitable for private usage.  
 
-<p align="center">
-  <img width="800" alt="download alma template" src="https://i.imgur.com/2zTD3ZK.png" />
-</p>
+3. **Provide Installation Documentation**  
+   - Deliver step-by-step instructions for installing and configuring the project on a Proxmox server.  
+   - Include explanations that go beyond basic commands, helping advanced users understand the rationale behind each step.  
 
-## Create a new Proxmox CT
+4. **Define the Scope Clearly**  
+   - ⚠️ **This project is not a crawler for the Tor network.**  
+   - Instead, it scrapes from a well-defined list of links.  
+   - While a crawler could technically be built on top of this by modifying the Scrapy component, doing so would create **heavy traffic and storage requirements**. Such an approach is **not part of this project** and should only be considered carefully after evaluating the consequences.  
 
-Create the container:
+---
 
-<p align="center">
-  <img width="160" alt="download alma template" src="https://i.imgur.com/Q1HWlLy.png" />
-</p>
+## Requirements and Limitations
 
-For this installation use (for later reference, choices of course up to you):
-* Name: "example"
-* ID: 777
-* Template: Alma 9 (s. above)
-* Local Storage - up to you, if you untend to use it heavily with the ELK Stack and der scrappers this should't be too small, for the example: 24GB
-* CPU with the use of the scrappers this shouldn't be too small too, for example: 8
-* Menory/swap - again with ELK this shouldn't be too small: 24 GB (24576 MB)
-* network - keep it simple here for example: DHCP, depends on your environment, **but** we need to know the NIC device name, assume **eth0** here
+- The project requires **basic knowledge** of Proxmox, Docker, Linux, and system administration.  
+- ⚠️ If you struggle to understand the instructions provided, it is strongly advised **not to attempt this project**.  
 
-Summary: 
-<p align="center">
-  <img width="800" alt="create alma container" src="https://i.imgur.com/ZZmI95W.png" />
-</p>
+---
 
-## Change CT settings on the Proxmox Server
+## Intended Usage
 
-For the ELK stack a manual change must be made in the containers configuration file.
-Therefore open shell on the Hostsystem, i.e. the machine running Proxmox and apply:
+- Designed for **private usage** and as a **starting point for other users**.  
+- Serves as a practical foundation for learning, experimenting, and potentially extending the project in controlled ways.  
 
-    echo "lxc.prlimit.memlock: unlimited" >> /etc/pve/lxc/777.conf
+---
 
-Change the file name "777.conf" with your choice for the id (s. above).
- as root
-Now configuration is done, and the container can be started.
+## Non-Goals
 
-# Working in the container
+To avoid confusion, here is what this project is **not** intended to do:  
 
-Login to the console of the container as root.
-First check ulimit for memlock, this is needed for ELK stack:
+- ❌ It is **not a crawler for the Tor network**.  
+- ❌ It is **not a public search engine**.  
+- ❌ It is **not designed for large-scale data collection or high-traffic scenarios**.  
+- ❌ It is **not intended for users without prior technical knowledge** (Proxmox, Docker, Linux basics).  
 
-    [root@example ~]# ulimit -l
+---
+## Installation
 
-this should return
+To begin the installation process, follow the step-by-step documentation starting with:  
 
-    unlimited
-
-This should be the normal behaviour, if there is some other output like "8192", check wether the change of the conf file for
-the container (s. above) was correctly made (correct file name? correct key-value pair?).
-
-**Remark:** using short syntax for shell from here on (only '> ').
-
-## Optional: create another user to work with, instead of root user direct
-
-Create user "docker" with group "wheel" (=sudo rights) and ser password
-
-    > adduser docker -g wheel
-    > passwd docker
-
-## The usual installations and necessary software
-
-Login as new created user "docker" and do the usual updates and install some software we need later and the typical tools.
-
-    > sudo dnf --refresh update
-    > sudo dnf -y install curl nano git net-tools dnf-plugins-core
-
-## Install Docker and docker-compose
-
-First add the docker repository and then install docker (for more see [here](https://docs.docker.com/engine/install/rhel/)): 
-
-    > sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
-    > sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-Then start docker and enable docker on system start:
-
-    > sudo systemctl start docker
-    > sudo systemctl enable docker
-
-Get docker-compose (you might want to change download to latest version of docker-compose) and make it executable
-
-    > sudo curl -L "https://github.com/docker/compose/releases/download/v2.39.2/docker-compose-linux-x86_64" -o /usr/bin/docker-compose
-    > sudo chmod +x /usr/bin/docker-compose
-
-## Get the repo for the Darkweb-search-engine
-
-Clone repository
-
-    > git clone https://github.com/sdierkes/Darkweb-search-engine-proxmox.git
-
-Go to directory and build everything
-
-    > cd cd Darkweb-search-engine-proxmox/
-    > sudo /usr/local/bin/docker-compose build
-
-There shouldn't be any errors, so now bring up the search engine
-
-    > sudo /usr/local/bin/docker-compose up -d
-
-Now you should be able to connect to search engine Web-GUI and kibana within your local network. 
-To get the ip address of your server/container you might use (assuming during container installation you choose eth0 as nic)
-
-    > ipconfig -a eth0
-
-In the output you should see the ip adress of your server and you might now point your browser to
-
-* for Web-Gui: http://IP-Adress:7000/
-* for Kibane: http://IP-Adress:5601/
-
-... of course replce "IP-Adress" with the correct value for your server.
-The Web-GUI shoild look like
-
-**TODO**
-
-**REMARK:** There is no data in there now. We need to set up Crwalers now
-
-## Run Crawlers
-
-    > sudo docker build --tag scraper_crawler ./
-
-
-
-
+➡️ [Step 1: Proxmox LXC Installation Guide](./docs/INSTALL-CONTAINER.md)  
+➡️ [Step 2: Adjust Proxmox settings for container](./docs/INSTALL-ADJUST-MEMLOCK.md) 
