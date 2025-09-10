@@ -61,4 +61,7 @@ To avoid confusion, here is what this project is **not** intended to do:
 To begin the installation process, follow the step-by-step documentation starting with:  
 
 ➡️ [Step 1: Proxmox LXC Installation Guide](./docs/INSTALL-CONTAINER.md)  
-➡️ [Step 2: Adjust Proxmox settings for container](./docs/INSTALL-ADJUST-MEMLOCK.md) 
+➡️ [Step 2: Adjust Proxmox settings for container](./docs/INSTALL-ADJUST-MEMLOCK.md)
+➡️ [Step 3: Install and configure Docker in the Container](./docs/INSTALL-DOCKER.md)
+➡️ [Step 4: Install and run the Project](./docs/GET-REPOSITORY.md)
+
