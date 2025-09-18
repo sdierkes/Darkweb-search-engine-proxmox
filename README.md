@@ -68,3 +68,8 @@ To begin the installation process, follow the step-by-step documentation startin
 
 ➡️ [Step 4: Install and run the Project](./docs/GET-REPOSITORY.md)
 
+---
+## Usage
+
+➡️ [Using TOR Browser](./docs/README-USE.md)
+
