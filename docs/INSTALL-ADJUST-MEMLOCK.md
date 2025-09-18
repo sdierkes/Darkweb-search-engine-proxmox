@@ -3,7 +3,7 @@
 For the ELK stack a manual change must be made in the containers configuration file.
 Therefore open shell on the Hostsystem, i.e. the machine running Proxmox and apply:
 
-    echo "lxc.prlimit.memlock: unlimited" >> /etc/pve/lxc/777.conf
+    echo "lxc.prlimit.memlock: unlimited" >> /etc/pve/lxc/555.conf
 
 <p align="center">
   <img width="800" alt="create alma container" src="./images/pve_adjust_memlock.png" />
